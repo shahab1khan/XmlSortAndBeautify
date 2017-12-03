@@ -85,27 +85,108 @@ namespace XmlCompareConsole
         /// <param name="element">
         /// The element.
         /// </param>
-        private static void XmlSort(XElement element)
+        /// <param name="frame">
+        /// The frame.
+        /// </param>
+        private static void XmlSort(XElement element, int frame)
         {
             if (element.Elements().Count() <= 1)
             {
                 return;
             }
 
+            var comments = element.Nodes().OfType<XComment>().ToList();
+
             var orderedElements = element.Elements()
                 .OrderBy(xElement => xElement.Name + SortAndAggregateAttributesAsString(xElement.Attributes())).ToList();
 
             foreach (XElement xElement in orderedElements)
             {
-                XmlSort(xElement);
+                XmlSort(xElement, ++frame);
+            }
+
+            Dictionary<XElement, List<XComment>> elementComments = new Dictionary<XElement, List<XComment>>();
+
+            foreach (XElement xElement in element.Elements())
+            {
+                var commentsBeforeXElement = comments.FirstOrDefault(x =>
+                    {
+                        if (x.NextNode.NextNode == null)
+                        {
+                            return false;
+                        }
+
+                        var hashcode1 = x.NextNode.NextNode.GetHashCode();
+
+                        var hashcode2 = xElement.GetHashCode();
+
+                        return hashcode1 == hashcode2;
+                    });
+
+                if (commentsBeforeXElement != null)
+                {
+                    var commentBlock = GetCommentBlock(comments, commentsBeforeXElement, 0);
+
+                    commentBlock.ForEach(element.Add);
+
+                    elementComments.Add(xElement, commentBlock);
+                }
+            }
+
+            var commentsAtEnd = comments.FirstOrDefault(x => x.NextNode.NextNode == null);
+
+            List<XComment> commentBlockAtEnd = null;
+
+            if (commentsAtEnd != null)
+            {
+                commentBlockAtEnd = GetCommentBlock(comments, commentsAtEnd, 0);
             }
 
             element.RemoveNodes();
 
             foreach (XElement xElement in orderedElements)
             {
+                if (elementComments.ContainsKey(xElement))
+                {
+                    elementComments[xElement].ForEach(element.Add);
+                }
                 element.Add(xElement);
             }
+
+            commentBlockAtEnd?.ForEach(element.Add);
+        }
+
+        /// <summary>
+        /// The get comment block.
+        /// </summary>
+        /// <param name="allComments">
+        /// The all comments.
+        /// </param>
+        /// <param name="currentComment">
+        /// The current comment.
+        /// </param>
+        /// <param name="frame">
+        /// The frame.
+        /// </param>
+        /// <returns>
+        /// The <see cref="List"/>.
+        /// </returns>
+        private static List<XComment> GetCommentBlock(IEnumerable<XComment> allComments, XComment currentComment, int frame)
+        {
+            var prevComment = allComments.Where(x => x.NextNode.NextNode == currentComment).ToList();
+
+            if (prevComment.Count() == 0)
+            {
+                return new List<XComment>() { };
+            }
+            else
+            {
+                prevComment.InsertRange(0, GetCommentBlock(allComments, prevComment.First(), ++frame));
+            }
+
+            prevComment.Add(currentComment);
+
+            return prevComment;
         }
 
         /// <summary>
@@ -121,7 +202,7 @@ namespace XmlCompareConsole
         {
             XElement root = XElement.Load(new XmlTextReader(new StringReader(xmlText)));
 
-            XmlSort(root);
+            XmlSort(root, 0);
 
             string xml = root.ToString();
 
