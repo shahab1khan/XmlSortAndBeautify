@@ -33,10 +33,11 @@ namespace XmlCompareConsole
 
             try
             {
+                string contents = null;
                 using (StreamReader s = new StreamReader(inputFile))
                 {
                     var encoding = s.CurrentEncoding;
-                    var contents = s.ReadToEnd();
+                    contents = s.ReadToEnd();
                     contents = XmlSortAndBeautify(contents);
                     Console.Write(contents);
 
@@ -50,9 +51,9 @@ namespace XmlCompareConsole
                             }
                         }
                     }
-
-                    Environment.Exit(0);
                 }
+
+                Environment.Exit(0);
             }
             catch (Exception e)
             {
@@ -90,6 +91,7 @@ namespace XmlCompareConsole
         /// </param>
         private static void XmlSort(XElement element, int frame)
         {
+            frame++;
             if (element.Elements().Count() <= 1)
             {
                 return;
@@ -102,7 +104,7 @@ namespace XmlCompareConsole
 
             foreach (XElement xElement in orderedElements)
             {
-                XmlSort(xElement, ++frame);
+                XmlSort(xElement, frame);
             }
 
             Dictionary<XElement, List<XComment>> elementComments = new Dictionary<XElement, List<XComment>>();
@@ -133,7 +135,11 @@ namespace XmlCompareConsole
                 }
             }
 
-            var commentsAtEnd = comments.FirstOrDefault(x => x.NextNode.NextNode == null);
+            var commentsAtEnd = comments.FirstOrDefault(x =>
+                {
+                    var elements = x.ElementsAfterSelf();
+                    return elements.Count() == 0;
+                });
 
             List<XComment> commentBlockAtEnd = null;
 
@@ -173,18 +179,19 @@ namespace XmlCompareConsole
         /// </returns>
         private static List<XComment> GetCommentBlock(IEnumerable<XComment> allComments, XComment currentComment, int frame)
         {
+            frame++;
             var prevComment = allComments.Where(x => x.NextNode.NextNode == currentComment).ToList();
 
             if (prevComment.Count() == 0)
             {
-                return new List<XComment>() { };
+                return new List<XComment>() { currentComment };
             }
             else
             {
-                prevComment.InsertRange(0, GetCommentBlock(allComments, prevComment.First(), ++frame));
+                prevComment.InsertRange(0, GetCommentBlock(allComments, prevComment.First(), frame));
             }
 
-            prevComment.Add(currentComment);
+            //prevComment.Add(currentComment);
 
             return prevComment;
         }
