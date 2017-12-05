@@ -63,6 +63,42 @@ namespace XmlCompareConsole
         }
 
         /// <summary>
+        /// The get comment block.
+        /// </summary>
+        /// <param name="allComments">
+        /// The all comments.
+        /// </param>
+        /// <param name="currentComment">
+        /// The current comment.
+        /// </param>
+        /// <param name="frame">
+        /// The frame.
+        /// </param>
+        /// <returns>
+        /// The <see cref="List"/>.
+        /// </returns>
+        private static List<XComment> GetCommentBlock(
+            IEnumerable<XComment> allComments,
+            XComment currentComment,
+            int frame)
+        {
+            frame++;
+            var prevComment = allComments.Where(x => x.NextNode.NextNode == currentComment).ToList();
+
+            if (prevComment.Count() == 0)
+            {
+                return new List<XComment>() { currentComment };
+            }
+            else
+            {
+                prevComment.InsertRange(0, GetCommentBlock(allComments, prevComment.First(), frame));
+            }
+
+            // prevComment.Add(currentComment);
+            return prevComment;
+        }
+
+        /// <summary>
         /// The all attributes as string.
         /// </summary>
         /// <param name="attributes">
@@ -99,8 +135,8 @@ namespace XmlCompareConsole
 
             var comments = element.Nodes().OfType<XComment>().ToList();
 
-            var orderedElements = element.Elements()
-                .OrderBy(xElement => xElement.Name + SortAndAggregateAttributesAsString(xElement.Attributes())).ToList();
+            var orderedElements = element.Elements().OrderBy(
+                xElement => xElement.Name + SortAndAggregateAttributesAsString(xElement.Attributes())).ToList();
 
             foreach (XElement xElement in orderedElements)
             {
@@ -111,19 +147,20 @@ namespace XmlCompareConsole
 
             foreach (XElement xElement in element.Elements())
             {
-                var commentsBeforeXElement = comments.FirstOrDefault(x =>
-                    {
-                        if (x.NextNode.NextNode == null)
+                var commentsBeforeXElement = comments.FirstOrDefault(
+                    x =>
                         {
-                            return false;
-                        }
+                            if (x.NextNode.NextNode == null)
+                            {
+                                return false;
+                            }
 
-                        var hashcode1 = x.NextNode.NextNode.GetHashCode();
+                            var hashcode1 = x.NextNode.NextNode.GetHashCode();
 
-                        var hashcode2 = xElement.GetHashCode();
+                            var hashcode2 = xElement.GetHashCode();
 
-                        return hashcode1 == hashcode2;
-                    });
+                            return hashcode1 == hashcode2;
+                        });
 
                 if (commentsBeforeXElement != null)
                 {
@@ -135,11 +172,12 @@ namespace XmlCompareConsole
                 }
             }
 
-            var commentsAtEnd = comments.FirstOrDefault(x =>
-                {
-                    var elements = x.ElementsAfterSelf();
-                    return elements.Count() == 0;
-                });
+            var commentsAtEnd = comments.FirstOrDefault(
+                x =>
+                    {
+                        var elements = x.ElementsAfterSelf();
+                        return elements.Count() == 0;
+                    });
 
             List<XComment> commentBlockAtEnd = null;
 
@@ -156,44 +194,11 @@ namespace XmlCompareConsole
                 {
                     elementComments[xElement].ForEach(element.Add);
                 }
+
                 element.Add(xElement);
             }
 
             commentBlockAtEnd?.ForEach(element.Add);
-        }
-
-        /// <summary>
-        /// The get comment block.
-        /// </summary>
-        /// <param name="allComments">
-        /// The all comments.
-        /// </param>
-        /// <param name="currentComment">
-        /// The current comment.
-        /// </param>
-        /// <param name="frame">
-        /// The frame.
-        /// </param>
-        /// <returns>
-        /// The <see cref="List"/>.
-        /// </returns>
-        private static List<XComment> GetCommentBlock(IEnumerable<XComment> allComments, XComment currentComment, int frame)
-        {
-            frame++;
-            var prevComment = allComments.Where(x => x.NextNode.NextNode == currentComment).ToList();
-
-            if (prevComment.Count() == 0)
-            {
-                return new List<XComment>() { currentComment };
-            }
-            else
-            {
-                prevComment.InsertRange(0, GetCommentBlock(allComments, prevComment.First(), frame));
-            }
-
-            //prevComment.Add(currentComment);
-
-            return prevComment;
         }
 
         /// <summary>
